@@ -1,0 +1,765 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OCEAN Type — 性格診断</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --E:#6c63ff; --O:#f59e0b; --P:#10b981; --H:#3b82f6; --S:#ec4899;
+      --bg:#f0f4f8; --card:#ffffff; --text:#1e293b; --muted:#64748b;
+      --border:#e2e8f0; --radius:16px; --shadow:0 4px 24px rgba(0,0,0,.08);
+    }
+    body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; background:var(--bg); color:var(--text); min-height:100vh; }
+
+    .screen { display:none; }
+    .screen.active { display:block; }
+
+    /* ── START ───────────────────────────────── */
+    #screen-start { min-height:100vh; display:none; flex-direction:column; align-items:center; justify-content:center; padding:32px 20px; text-align:center; }
+    #screen-start.active { display:flex; }
+    .logo { font-size:48px; font-weight:900; letter-spacing:-2px; background:linear-gradient(135deg,var(--E),var(--S)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; margin-bottom:8px; }
+    .logo-sub { font-size:14px; color:var(--muted); margin-bottom:48px; letter-spacing:2px; text-transform:uppercase; }
+    .mode-cards { display:flex; gap:20px; flex-wrap:wrap; justify-content:center; max-width:640px; width:100%; }
+    .mode-card { flex:1; min-width:260px; background:var(--card); border-radius:var(--radius); box-shadow:var(--shadow); padding:32px 28px; cursor:pointer; border:2px solid transparent; transition:border-color .2s,transform .2s,box-shadow .2s; text-align:left; }
+    .mode-card:hover { border-color:var(--E); transform:translateY(-4px); box-shadow:0 8px 32px rgba(108,99,255,.15); }
+    .mode-card .badge { display:inline-block; background:linear-gradient(135deg,var(--E),var(--S)); color:#fff; font-size:11px; font-weight:700; letter-spacing:1px; text-transform:uppercase; padding:4px 10px; border-radius:20px; margin-bottom:16px; }
+    .mode-card h2 { font-size:22px; font-weight:800; margin-bottom:8px; }
+    .mode-card .meta { font-size:13px; color:var(--muted); margin-bottom:12px; }
+    .mode-card p { font-size:14px; color:var(--muted); line-height:1.6; }
+    .mode-card .btn-start { display:block; margin-top:20px; background:var(--E); color:#fff; font-size:14px; font-weight:700; padding:12px 0; border-radius:10px; text-align:center; }
+    .mode-card:hover .btn-start { background:#5b52e8; }
+    .ocean-strip { display:flex; gap:8px; margin-top:48px; flex-wrap:wrap; justify-content:center; }
+    .ocean-strip span { font-size:12px; font-weight:700; padding:5px 12px; border-radius:20px; color:#fff; }
+
+    /* ── QUIZ ────────────────────────────────── */
+    #screen-quiz { min-height:100vh; display:none; flex-direction:column; align-items:center; padding:0 20px 60px; }
+    #screen-quiz.active { display:flex; }
+    .quiz-header { width:100%; max-width:680px; padding:28px 0 16px; }
+    .progress-row { display:flex; align-items:center; gap:12px; margin-bottom:10px; }
+    .progress-label { font-size:13px; color:var(--muted); white-space:nowrap; }
+    .progress-bar-outer { flex:1; height:8px; background:var(--border); border-radius:4px; overflow:hidden; }
+    .progress-bar-inner { height:100%; background:linear-gradient(90deg,var(--E),var(--S)); border-radius:4px; transition:width .4s ease; }
+    .quiz-card { width:100%; max-width:680px; background:var(--card); border-radius:var(--radius); box-shadow:var(--shadow); padding:40px 40px 36px; }
+    .dim-badge { display:inline-block; font-size:11px; font-weight:800; letter-spacing:1px; text-transform:uppercase; padding:4px 12px; border-radius:20px; color:#fff; margin-bottom:20px; }
+    .question-text { font-size:22px; font-weight:700; line-height:1.5; margin-bottom:36px; min-height:66px; }
+    .likert { display:flex; flex-direction:column; gap:10px; margin-bottom:36px; }
+    .likert-btn { display:flex; align-items:center; gap:14px; padding:14px 18px; border-radius:12px; border:2px solid var(--border); cursor:pointer; background:#fff; transition:border-color .15s,background .15s,transform .1s; }
+    .likert-btn:hover { border-color:#c4bfff; background:#f5f4ff; transform:translateX(3px); }
+    .likert-btn.selected { border-color:var(--E); background:#f0eeff; }
+    .likert-num { width:30px; height:30px; border-radius:50%; background:var(--border); display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:800; color:var(--muted); flex-shrink:0; transition:background .15s,color .15s; }
+    .likert-btn.selected .likert-num { background:var(--E); color:#fff; }
+    .likert-label { font-size:14px; color:var(--text); }
+    .quiz-nav { display:flex; justify-content:space-between; align-items:center; }
+    .btn { padding:12px 28px; border-radius:10px; font-size:15px; font-weight:700; cursor:pointer; border:none; transition:opacity .15s,transform .1s; }
+    .btn:active { transform:scale(.97); }
+    .btn-primary { background:var(--E); color:#fff; }
+    .btn-primary:disabled { opacity:.4; cursor:not-allowed; }
+    .btn-ghost { background:transparent; color:var(--muted); border:2px solid var(--border); }
+    .btn-ghost:disabled { opacity:.3; cursor:not-allowed; }
+
+    /* ── LOADING ─────────────────────────────── */
+    #screen-loading { min-height:100vh; display:none; flex-direction:column; align-items:center; justify-content:center; gap:24px; text-align:center; }
+    #screen-loading.active { display:flex; }
+    .spinner { width:56px; height:56px; border-radius:50%; border:5px solid var(--border); border-top-color:var(--E); animation:spin .8s linear infinite; }
+    @keyframes spin { to { transform:rotate(360deg); } }
+    .loading-text { font-size:18px; font-weight:600; color:var(--muted); }
+
+    /* ── RESULT ──────────────────────────────── */
+    #screen-result { min-height:100vh; display:none; flex-direction:column; align-items:center; padding:40px 20px 80px; }
+    #screen-result.active { display:flex; }
+    .result-section { width:100%; max-width:720px; margin-bottom:20px; }
+    .result-hero { background:linear-gradient(135deg,#6c63ff 0%,#ec4899 100%); border-radius:var(--radius); color:#fff; padding:44px 40px; text-align:center; }
+    .result-type-code { font-size:13px; font-weight:700; letter-spacing:4px; opacity:.8; margin-bottom:8px; }
+    .result-type-name { font-size:44px; font-weight:900; letter-spacing:-1px; margin-bottom:16px; }
+    .result-description { font-size:15px; line-height:1.8; opacity:.92; max-width:520px; margin:0 auto; }
+    .card { background:var(--card); border-radius:var(--radius); box-shadow:var(--shadow); padding:28px 32px; }
+    .card-title { font-size:13px; font-weight:700; color:var(--muted); letter-spacing:1px; text-transform:uppercase; margin-bottom:16px; }
+    .detail-text { font-size:15px; line-height:1.9; color:var(--text); }
+
+    /* Radar + Scores */
+    .chart-scores-grid { display:grid; grid-template-columns:1fr 1fr; gap:20px; }
+    @media(max-width:640px){ .chart-scores-grid{grid-template-columns:1fr;} }
+    .chart-inner { display:flex; flex-direction:column; align-items:center; }
+    .score-row { display:flex; align-items:center; gap:12px; margin-bottom:12px; }
+    .score-dim-badge { width:30px; height:30px; border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:900; color:#fff; flex-shrink:0; }
+    .score-bar-outer { flex:1; height:10px; background:var(--border); border-radius:5px; overflow:hidden; }
+    .score-bar-inner { height:100%; border-radius:5px; transition:width 1s ease; }
+    .score-value { font-size:13px; font-weight:700; min-width:36px; text-align:right; }
+    .score-letter { font-size:14px; font-weight:900; min-width:18px; text-align:center; }
+
+    /* SW */
+    .sw-grid { display:grid; grid-template-columns:1fr 1fr; gap:20px; }
+    @media(max-width:560px){ .sw-grid{grid-template-columns:1fr;} }
+    .sw-title { font-size:13px; font-weight:700; letter-spacing:1px; text-transform:uppercase; margin-bottom:14px; }
+    .sw-title.s { color:#10b981; }
+    .sw-title.w { color:#f59e0b; }
+    .sw-list { list-style:none; display:flex; flex-direction:column; gap:10px; }
+    .sw-list li { display:flex; align-items:flex-start; gap:10px; font-size:14px; line-height:1.5; }
+    .sw-list li::before { content:''; width:8px; height:8px; border-radius:50%; flex-shrink:0; margin-top:5px; }
+    .sw-list.s li::before { background:#10b981; }
+    .sw-list.w li::before { background:#f59e0b; }
+
+    /* Dimension explanation */
+    .dim-explain-grid { display:flex; flex-direction:column; gap:16px; }
+    .dim-explain-row { display:flex; gap:14px; align-items:flex-start; }
+    .dim-explain-badge { width:38px; height:38px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:900; color:#fff; flex-shrink:0; }
+    .dim-explain-body { flex:1; }
+    .dim-explain-title { font-size:14px; font-weight:700; margin-bottom:4px; }
+    .dim-explain-desc { font-size:13px; color:var(--muted); line-height:1.7; }
+    .dhl { font-weight:700; }
+
+    /* All 32 types */
+    .types-group-label { font-size:12px; font-weight:700; color:var(--muted); letter-spacing:1px; text-transform:uppercase; margin-bottom:10px; margin-top:18px; }
+    .types-group-label:first-child { margin-top:0; }
+    .types-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; }
+    @media(max-width:540px){ .types-grid{grid-template-columns:repeat(2,1fr);} }
+    .type-chip { border-radius:10px; padding:10px 8px 8px; background:#f8fafc; border:2px solid var(--border); cursor:pointer; transition:border-color .15s,background .15s,transform .1s; text-align:center; }
+    .type-chip:hover { border-color:var(--E); background:#f0eeff; transform:translateY(-2px); }
+    .type-chip.mine { border-color:var(--E); background:#f0eeff; }
+    .type-chip-code { font-size:10px; font-weight:900; letter-spacing:1px; color:var(--muted); }
+    .type-chip.mine .type-chip-code { color:var(--E); }
+    .type-chip-name { font-size:13px; font-weight:700; color:var(--text); margin-top:3px; }
+    .type-chip-you { display:inline-block; font-size:9px; font-weight:700; background:var(--E); color:#fff; padding:1px 6px; border-radius:8px; margin-top:4px; }
+
+    /* Compatibility */
+    .compat-grid { display:grid; grid-template-columns:1fr 1fr; gap:20px; }
+    @media(max-width:600px){ .compat-grid{grid-template-columns:1fr;} }
+    .compat-section-title { font-size:13px; font-weight:700; letter-spacing:1px; text-transform:uppercase; margin-bottom:16px; }
+    .compat-section-title.good { color:#10b981; }
+    .compat-section-title.bad  { color:#f59e0b; }
+    .compat-list { display:flex; flex-direction:column; gap:14px; }
+    .compat-item { border-radius:12px; border:1.5px solid var(--border); overflow:hidden; }
+    .compat-header { display:flex; align-items:center; gap:10px; padding:12px 14px; background:#f8fafc; }
+    .compat-rank { font-size:11px; font-weight:900; color:var(--muted); min-width:22px; }
+    .compat-code { font-size:11px; font-weight:900; letter-spacing:1px; padding:3px 8px; border-radius:6px; color:#fff; }
+    .compat-name { font-size:15px; font-weight:700; flex:1; }
+    .compat-match-badge { font-size:11px; font-weight:700; color:var(--muted); white-space:nowrap; }
+    .compat-body { padding:12px 14px; display:flex; flex-direction:column; gap:10px; }
+    .compat-row { display:flex; gap:8px; font-size:13px; line-height:1.6; }
+    .compat-row-icon { width:20px; height:20px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:11px; flex-shrink:0; margin-top:1px; }
+    .compat-row-icon.why { background:#ede9fe; }
+    .compat-row-icon.how { background:#d1fae5; }
+    .compat-row-text { flex:1; color:var(--text); }
+    .compat-row-label { font-weight:700; margin-right:4px; }
+
+    /* Retry */
+    .result-footer { text-align:center; margin-top:12px; }
+    .btn-retry { background:var(--card); color:var(--E); border:2px solid var(--E); padding:14px 40px; border-radius:12px; font-size:16px; font-weight:700; cursor:pointer; transition:background .15s,color .15s; }
+    .btn-retry:hover { background:var(--E); color:#fff; }
+
+    /* ── MODAL ───────────────────────────────── */
+    .modal-overlay { position:fixed; inset:0; background:rgba(15,23,42,.6); z-index:9999; display:none; align-items:center; justify-content:center; padding:20px; backdrop-filter:blur(6px); }
+    .modal-overlay.open { display:flex; }
+    .modal-card { background:#fff; border-radius:20px; max-width:580px; width:100%; max-height:90vh; overflow-y:auto; position:relative; box-shadow:0 25px 60px rgba(0,0,0,.25); animation:modalIn .2s ease; }
+    @keyframes modalIn { from { opacity:0; transform:translateY(14px) scale(.97); } }
+    .modal-header { padding:32px 32px 24px; color:#fff; border-radius:20px 20px 0 0; position:relative; }
+    .modal-close-btn { position:absolute; top:14px; right:14px; width:34px; height:34px; border-radius:50%; background:rgba(255,255,255,.25); border:none; cursor:pointer; color:#fff; font-size:18px; display:flex; align-items:center; justify-content:center; line-height:1; transition:background .15s; }
+    .modal-close-btn:hover { background:rgba(255,255,255,.4); }
+    .modal-type-code { font-size:11px; font-weight:700; letter-spacing:4px; opacity:.8; margin-bottom:6px; }
+    .modal-type-name { font-size:32px; font-weight:900; letter-spacing:-1px; }
+    .modal-you-badge { display:inline-block; font-size:11px; font-weight:700; background:rgba(255,255,255,.3); color:#fff; padding:3px 10px; border-radius:20px; margin-top:8px; }
+    .modal-body { padding:24px 32px 32px; }
+    .modal-section { margin-bottom:20px; }
+    .modal-section-title { font-size:12px; font-weight:700; color:var(--muted); letter-spacing:1px; text-transform:uppercase; margin-bottom:10px; }
+    .modal-desc { font-size:14px; line-height:1.8; color:var(--text); margin-bottom:12px; }
+    .modal-detail { font-size:13px; line-height:1.8; color:var(--muted); }
+    .modal-sw-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-top:4px; }
+    @media(max-width:480px){ .modal-sw-grid{grid-template-columns:1fr;} }
+    .modal-sw-list { list-style:none; display:flex; flex-direction:column; gap:8px; }
+    .modal-sw-list li { display:flex; align-items:flex-start; gap:8px; font-size:13px; line-height:1.5; }
+    .modal-sw-list li::before { content:''; width:7px; height:7px; border-radius:50%; flex-shrink:0; margin-top:4px; }
+    .modal-sw-list.s li::before { background:#10b981; }
+    .modal-sw-list.w li::before { background:#f59e0b; }
+    .modal-sw-subtitle { font-size:12px; font-weight:700; margin-bottom:8px; }
+    .modal-sw-subtitle.s { color:#10b981; }
+    .modal-sw-subtitle.w { color:#f59e0b; }
+
+    @media(max-width:600px){
+      .quiz-card { padding:28px 20px 24px; }
+      .question-text { font-size:18px; }
+      .result-hero { padding:32px 24px; }
+      .result-type-name { font-size:32px; }
+      .card { padding:22px 20px; }
+      .modal-body { padding:20px 20px 28px; }
+      .modal-header { padding:24px 20px 20px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── START ─────────────────────────────────────────── -->
+<div id="screen-start" class="screen active">
+  <div class="logo">OCEAN Type</div>
+  <div class="logo-sub">Big Five 性格診断 · 32タイプ</div>
+  <div class="mode-cards">
+    <div class="mode-card" onclick="startQuiz('short')">
+      <span class="badge">かんたん</span>
+      <h2>かんたん診断</h2>
+      <div class="meta">20問 · 約5分</div>
+      <p>各次元4問ずつのコアな質問で、あなたの性格タイプを素早く診断します。</p>
+      <div class="btn-start">診断スタート →</div>
+    </div>
+    <div class="mode-card" onclick="startQuiz('full')">
+      <span class="badge">しっかり</span>
+      <h2>しっかり診断</h2>
+      <div class="meta">100問 · 約20分</div>
+      <p>各次元20問の詳細な質問で、より精度の高い診断結果を提供します。</p>
+      <div class="btn-start">診断スタート →</div>
+    </div>
+  </div>
+  <div class="ocean-strip">
+    <span style="background:var(--E)">外向性 E/I</span>
+    <span style="background:var(--O)">革新性 O/T</span>
+    <span style="background:var(--P)">計画性 P/F</span>
+    <span style="background:var(--H)">協調性 H/D</span>
+    <span style="background:var(--S)">安定性 S/R</span>
+  </div>
+</div>
+
+<!-- ── QUIZ ──────────────────────────────────────────── -->
+<div id="screen-quiz" class="screen">
+  <div class="quiz-header">
+    <div class="progress-row">
+      <span class="progress-label" id="progress-label">1 / 20</span>
+      <div class="progress-bar-outer"><div class="progress-bar-inner" id="progress-bar" style="width:0%"></div></div>
+    </div>
+  </div>
+  <div class="quiz-card">
+    <div id="dim-badge" class="dim-badge"></div>
+    <div id="question-text" class="question-text"></div>
+    <div class="likert">
+      <div class="likert-btn" data-val="1" onclick="selectAnswer(1)"><div class="likert-num">1</div><div class="likert-label">とてもあてはまる</div></div>
+      <div class="likert-btn" data-val="2" onclick="selectAnswer(2)"><div class="likert-num">2</div><div class="likert-label">ややあてはまる</div></div>
+      <div class="likert-btn" data-val="3" onclick="selectAnswer(3)"><div class="likert-num">3</div><div class="likert-label">どちらともいえない</div></div>
+      <div class="likert-btn" data-val="4" onclick="selectAnswer(4)"><div class="likert-num">4</div><div class="likert-label">あまりあてはまらない</div></div>
+      <div class="likert-btn" data-val="5" onclick="selectAnswer(5)"><div class="likert-num">5</div><div class="likert-label">全くあてはまらない</div></div>
+    </div>
+    <div class="quiz-nav">
+      <button class="btn btn-ghost" id="btn-prev" onclick="prevQuestion()" disabled>← 前へ</button>
+      <button class="btn btn-primary" id="btn-next" onclick="nextQuestion()" disabled>次へ →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── LOADING ────────────────────────────────────────── -->
+<div id="screen-loading" class="screen">
+  <div class="spinner"></div>
+  <div class="loading-text">診断中...</div>
+</div>
+
+<!-- ── RESULT ─────────────────────────────────────────── -->
+<div id="screen-result" class="screen">
+
+  <div class="result-section">
+    <div class="result-hero">
+      <div class="result-type-code" id="result-type-code"></div>
+      <div class="result-type-name" id="result-type-name"></div>
+      <div class="result-description" id="result-description"></div>
+    </div>
+  </div>
+
+  <div class="result-section">
+    <div class="card">
+      <div class="card-title">あなたの特徴</div>
+      <div class="detail-text" id="result-detail"></div>
+    </div>
+  </div>
+
+  <div class="result-section">
+    <div class="card">
+      <div class="card-title" style="margin-bottom:20px">性格レーダーチャート</div>
+      <div class="chart-scores-grid">
+        <div class="chart-inner"><canvas id="radar-canvas" width="300" height="300"></canvas></div>
+        <div>
+          <div class="card-title">5次元スコア</div>
+          <div id="score-rows"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="result-section">
+    <div class="sw-grid">
+      <div class="card"><div class="sw-title s">強み</div><ul class="sw-list s" id="strengths-list"></ul></div>
+      <div class="card"><div class="sw-title w">弱み・注意点</div><ul class="sw-list w" id="weaknesses-list"></ul></div>
+    </div>
+  </div>
+
+  <!-- 5 dimensions explanation -->
+  <div class="result-section">
+    <div class="card">
+      <div class="card-title">5つの次元について</div>
+      <div class="dim-explain-grid">
+        <div class="dim-explain-row">
+          <div class="dim-explain-badge" style="background:var(--E)">E/I</div>
+          <div class="dim-explain-body">
+            <div class="dim-explain-title"><span class="dhl" style="color:var(--E)">外向性 (E)</span> vs <span class="dhl" style="color:var(--E)">内向性 (I)</span></div>
+            <div class="dim-explain-desc">エネルギーの向かう方向を示す次元。<b>E（外向）</b>は他者との交流から活力を得る社交的な特性。<b>I（内向）</b>は一人の時間や内省からエネルギーを補充する特性。充電スタイルの違いであり、どちらが優れているわけではありません。</div>
+          </div>
+        </div>
+        <div class="dim-explain-row">
+          <div class="dim-explain-badge" style="background:var(--O)">O/T</div>
+          <div class="dim-explain-body">
+            <div class="dim-explain-title"><span class="dhl" style="color:var(--O)">革新性 (O)</span> vs <span class="dhl" style="color:var(--O)">伝統性 (T)</span></div>
+            <div class="dim-explain-desc">アイデアと変化への姿勢を示す次元。<b>O（革新）</b>は好奇心旺盛で新しい経験・抽象的な思考を好む特性。<b>T（伝統）</b>は安定・慣習・実用的なアプローチを重んじる特性。</div>
+          </div>
+        </div>
+        <div class="dim-explain-row">
+          <div class="dim-explain-badge" style="background:var(--P)">P/F</div>
+          <div class="dim-explain-body">
+            <div class="dim-explain-title"><span class="dhl" style="color:var(--P)">計画性 (P)</span> vs <span class="dhl" style="color:var(--P)">柔軟性 (F)</span></div>
+            <div class="dim-explain-desc">意思決定とライフスタイルを示す次元。<b>P（計画）</b>は構造・組織・決定を好む特性。<b>F（柔軟）</b>は開放的・臨機応変・自発的な生き方を好む特性。</div>
+          </div>
+        </div>
+        <div class="dim-explain-row">
+          <div class="dim-explain-badge" style="background:var(--H)">H/D</div>
+          <div class="dim-explain-body">
+            <div class="dim-explain-title"><span class="dhl" style="color:var(--H)">協調性 (H)</span> vs <span class="dhl" style="color:var(--H)">自律性 (D)</span></div>
+            <div class="dim-explain-desc">人間関係の取り方を示す次元。<b>H（協調）</b>は他者との調和・協力・共感を重視する特性。<b>D（自律）</b>は独立心が強く、自己の判断・競争・自立を重視する特性。</div>
+          </div>
+        </div>
+        <div class="dim-explain-row">
+          <div class="dim-explain-badge" style="background:var(--S)">S/R</div>
+          <div class="dim-explain-body">
+            <div class="dim-explain-title"><span class="dhl" style="color:var(--S)">安定性 (S)</span> vs <span class="dhl" style="color:var(--S)">敏感性 (R)</span></div>
+            <div class="dim-explain-desc">感情の揺れ幅を示す次元。<b>S（安定）</b>は感情的に穏やかでストレス耐性が高い特性。<b>R（敏感）</b>は感受性が豊かで感情の起伏が大きく、世界を繊細に感じ取る特性。</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- All 32 types -->
+  <div class="result-section">
+    <div class="card">
+      <div class="card-title">全32タイプ一覧 <span style="font-size:11px;font-weight:400;color:var(--muted);letter-spacing:0;text-transform:none">— タイプをクリックすると詳細が表示されます</span></div>
+      <div class="types-group-label">外向型（E）</div>
+      <div class="types-grid" id="types-grid-e"></div>
+      <div class="types-group-label">内向型（I）</div>
+      <div class="types-grid" id="types-grid-i"></div>
+    </div>
+  </div>
+
+  <!-- Compatibility -->
+  <div class="result-section">
+    <div class="compat-grid">
+      <div class="card">
+        <div class="compat-section-title good">相性の良い性格 TOP 3</div>
+        <div class="compat-list" id="compat-good"></div>
+      </div>
+      <div class="card">
+        <div class="compat-section-title bad">相性の良くない性格 TOP 3</div>
+        <div class="compat-list" id="compat-bad"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="result-section result-footer">
+    <button class="btn-retry" onclick="goHome()">やり直す</button>
+  </div>
+</div>
+
+<!-- ── TYPE MODAL ──────────────────────────────────────── -->
+<div class="modal-overlay" id="type-modal" onclick="handleModalOverlayClick(event)">
+  <div class="modal-card" id="modal-card">
+    <div class="modal-header" id="modal-header">
+      <button class="modal-close-btn" onclick="closeTypeModal()">✕</button>
+      <div class="modal-type-code" id="modal-type-code"></div>
+      <div class="modal-type-name" id="modal-type-name"></div>
+      <div id="modal-you-badge"></div>
+    </div>
+    <div class="modal-body">
+      <div class="modal-section">
+        <div class="modal-section-title">タイプ概要</div>
+        <div class="modal-desc" id="modal-desc"></div>
+        <div class="modal-detail" id="modal-detail"></div>
+      </div>
+      <div class="modal-section">
+        <div class="modal-section-title">強み・弱み</div>
+        <div class="modal-sw-grid">
+          <div>
+            <div class="modal-sw-subtitle s">強み</div>
+            <ul class="modal-sw-list s" id="modal-strengths"></ul>
+          </div>
+          <div>
+            <div class="modal-sw-subtitle w">弱み</div>
+            <ul class="modal-sw-list w" id="modal-weaknesses"></ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ── Injected type data (from server via Jinja2) ─────────
+  const TYPE_DATA = {{ type_data_json | safe }};
+
+  // ── Constants ───────────────────────────────────────────
+  const DIM_COLORS  = { E:'#6c63ff', O:'#f59e0b', P:'#10b981', H:'#3b82f6', S:'#ec4899' };
+  const DIM_NAMES   = { E:'外向性', O:'革新性', P:'計画性', H:'協調性', S:'安定性' };
+
+  const ALL_TYPES_E = [
+    ['EOPHS','先駆者'],['EOPHR','開拓者'],['EOPDS','戦略家'],['EOPDR','反骨者'],
+    ['EOFHS','演出家'],['EOFHR','共感者'],['EOFDS','探検家'],['EOFDR','奔放者'],
+    ['ETPHS','統率者'],['ETPHR','守護者'],['ETPDS','監督者'],['ETPDR','挑戦者'],
+    ['ETFHS','調整者'],['ETFHR','支援者'],['ETFDS','実務家'],['ETFDR','職人'],
+  ];
+  const ALL_TYPES_I = [
+    ['IOPHS','発明家'],['IOPHR','詩人'],  ['IOPDS','哲学者'],['IOPDR','内省者'],
+    ['IOFHS','夢想家'],['IOFHR','繊細者'],['IOFDS','個人主義者'],['IOFDR','神秘家'],
+    ['ITPHS','研究者'],['ITPHR','番人'],  ['ITPDS','分析家'],['ITPDR','求道者'],
+    ['ITFHS','調和者'],['ITFHR','共鳴者'],['ITFDS','孤高の匠'],['ITFDR','隠者'],
+  ];
+
+  // ── Compatibility explanation templates ─────────────────
+  // Why two types with the SAME letter in a dimension are compatible
+  const SAME_WHY = {
+    E: '外向的な社交スタイルが共鳴し、一緒にいて活力が生まれます',
+    I: '内省を大切にするスタイルが一致し、互いの静かな時間を自然に尊重できます',
+    O: '革新的な発想と知的好奇心が共鳴します',
+    T: '安定・伝統を重んじる価値観が一致します',
+    P: '計画的・組織的なアプローチが一致します',
+    F: '柔軟で自発的なスタイルが共鳴します',
+    H: '協調・和を大切にする姿勢が一致します',
+    D: '独立心と自律的な姿勢が共鳴します',
+    S: '感情の安定したペースが近く、落ち着いた関係になりやすいです',
+    R: '豊かな感受性が共鳴し、細やかな感情のやり取りができます',
+  };
+
+  // Per-dimension info for DIFFERING letters
+  const DIFF_INFO = {
+    E: {
+      why_compat:   '社交スタイルの違いが新鮮な刺激をもたらします',
+      why_incompat: 'エネルギー充電スタイル（外向↔内向）が対照的で、行動ペースのずれが生じやすいです',
+      how_compat:   '外向側は相手の一人の時間を尊重し、内向側は交流の場に少し参加してみましょう',
+      how_incompat: '外向側は相手を急かさず静かな環境も提供し、内向側は相手の交流欲求に少し応える工夫をしましょう',
+    },
+    O: {
+      why_compat:   '思考スタイルの違いが互いの視野を広げます',
+      why_incompat: '変化・新しさへの姿勢（革新↔伝統）が対照的で、アイデアの受け取り方に温度差が出やすいです',
+      how_compat:   '革新側は根拠を添えて提案し、伝統側は新しい視点をまず一旦受け止める姿勢が大切です',
+      how_incompat: '革新側は変化のメリットを丁寧に説明し、伝統側は全否定より「一度試す」姿勢を意識しましょう',
+    },
+    P: {
+      why_compat:   'ライフスタイルの違いが補い合う関係を生みます',
+      why_incompat: '計画↔柔軟のアプローチが対照的で、段取りへの温度差が摩擦を生みやすいです',
+      how_compat:   '計画側は大枠のみ共有し細部に余地を残す、柔軟側は最低限の期日を守ることで協力できます',
+      how_incompat: '計画側はすべてを決めようとせず余白を残し、柔軟側は「後で考える」を減らす努力が大切です',
+    },
+    H: {
+      why_compat:   '対人スタイルの違いがバランスのよい関係を生みます',
+      why_incompat: '協調↔自律の対人スタイルが対照的で、感情的なすれ違いが起きやすいです',
+      how_compat:   '協調側は相手の独立心を尊重し、自律側は相手の「和」への配慮を否定しないようにしましょう',
+      how_incompat: '協調側はNOも伝えられるよう意識し、自律側は相手の感情に少し気を配るよう努めましょう',
+    },
+    S: {
+      why_compat:   '感情の揺れ幅の違いが互いを補完します',
+      why_incompat: '感情の安定度・感受性の強さ（安定↔敏感）が対照的で、感情面でのすれ違いが起きやすいです',
+      how_compat:   '安定側は感情表現を否定せず受け止め、敏感側は冷静な反応を「冷たい」と誤解しないようにしましょう',
+      how_incompat: '安定側は感情への言葉がけを意識し、敏感側は感情を整理してから話すと伝わりやすいです',
+    },
+  };
+
+  function generateCompatExplanation(myCode, theirCode, isGood) {
+    const DIMS = ['E','O','P','H','S'];
+    const same = [], diff = [];
+    DIMS.forEach((d, i) => {
+      if (myCode[i] === theirCode[i]) same.push({ dim: d, letter: myCode[i] });
+      else diff.push({ dim: d });
+    });
+
+    let why = '', how = '';
+
+    if (isGood) {
+      // Why: list shared traits concisely
+      if (same.length >= 3) {
+        // Compact: "○○・○○・○○ が共鳴します"
+        const pts = same.map(s => SAME_WHY[s.letter]);
+        why = pts.slice(0, 3).join('、') + 'という点が共鳴します。';
+        if (diff.length === 1 && DIFF_INFO[diff[0].dim]) {
+          why += DIFF_INFO[diff[0].dim].why_compat + 'という面もあります。';
+        }
+      } else {
+        why = same.map(s => SAME_WHY[s.letter]).join('、') + 'という点が共鳴します。';
+      }
+      // How
+      const howParts = diff.map(d => DIFF_INFO[d.dim]?.how_compat).filter(Boolean);
+      how = howParts.length ? howParts.join('また、') : 'お互いの強みを積極的に言語化して伝え合いましょう。';
+
+    } else {
+      // Why: focus on differences
+      const diffParts = diff.slice(0, 4).map(d => DIFF_INFO[d.dim]?.why_incompat).filter(Boolean);
+      why = diffParts.join('。') + '。';
+      if (same.length > 0) {
+        why += `一方で${same.map(s => SAME_WHY[s.letter]).join('、')}という共鳴点もあります。`;
+      }
+      // How: top 3 differing dims
+      const howParts = diff.slice(0, 3).map(d => DIFF_INFO[d.dim]?.how_incompat).filter(Boolean);
+      how = howParts.length ? howParts.join('また、') : 'まずは共通の話題から少しずつ交流を深めましょう。';
+    }
+
+    return { why, how };
+  }
+
+  // ── App state ───────────────────────────────────────────
+  let questions = [], answers = {}, current = 0, mode = 'short';
+  let myTypeCode = '';
+
+  // ── Screens ─────────────────────────────────────────────
+  function showScreen(id) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById('screen-' + id).classList.add('active');
+    window.scrollTo(0, 0);
+  }
+  function goHome() { questions = []; answers = {}; current = 0; myTypeCode = ''; showScreen('start'); }
+
+  // ── Quiz ────────────────────────────────────────────────
+  async function startQuiz(m) {
+    mode = m; answers = {}; current = 0;
+    showScreen('loading');
+    const res = await fetch('/questions?mode=' + mode);
+    questions = await res.json();
+    showScreen('quiz');
+    renderQuestion();
+  }
+
+  function renderQuestion() {
+    const q = questions[current], tot = questions.length;
+    document.getElementById('progress-label').textContent = `${current + 1} / ${tot}`;
+    document.getElementById('progress-bar').style.width = `${(current + 1) / tot * 100}%`;
+
+    const badge = document.getElementById('dim-badge');
+    badge.textContent = DIM_NAMES[q.dimension] + ' — ' + q.dimension;
+    badge.style.background = DIM_COLORS[q.dimension];
+
+    document.getElementById('question-text').textContent = q.text;
+
+    const saved = answers[q.id];
+    document.querySelectorAll('.likert-btn').forEach(btn => {
+      btn.classList.toggle('selected', parseInt(btn.dataset.val) === saved);
+    });
+
+    document.getElementById('btn-prev').disabled = (current === 0);
+    const btnNext = document.getElementById('btn-next');
+    btnNext.textContent = current === tot - 1 ? '診断する ✓' : '次へ →';
+    btnNext.disabled = !saved;
+  }
+
+  function selectAnswer(displayVal) {
+    answers[questions[current].id] = displayVal;
+    document.querySelectorAll('.likert-btn').forEach(btn => {
+      btn.classList.toggle('selected', parseInt(btn.dataset.val) === displayVal);
+    });
+    document.getElementById('btn-next').disabled = false;
+    // No auto-advance — user must press 次へ
+  }
+
+  function prevQuestion() { if (current > 0) { current--; renderQuestion(); } }
+  function nextQuestion() {
+    if (!answers[questions[current].id]) return;
+    if (current < questions.length - 1) { current++; renderQuestion(); }
+    else submitAnswers();
+  }
+
+  // ── Submit ───────────────────────────────────────────────
+  async function submitAnswers() {
+    showScreen('loading');
+    // Convert: display 1(とても)→server 5, display 5(全く)→server 1
+    const serverAnswers = {};
+    for (const [id, dv] of Object.entries(answers)) serverAnswers[id] = 6 - dv;
+
+    const res = await fetch('/score', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mode, answers: serverAnswers }),
+    });
+    const data = await res.json();
+    renderResult(data);
+    showScreen('result');
+  }
+
+  // ── Render result ────────────────────────────────────────
+  function renderResult(data) {
+    myTypeCode = data.type_code;
+
+    document.getElementById('result-type-code').textContent  = data.type_code;
+    document.getElementById('result-type-name').textContent  = data.type_name;
+    document.getElementById('result-description').textContent = data.description;
+    document.getElementById('result-detail').textContent      = data.detail;
+
+    // Score bars
+    const rowsEl = document.getElementById('score-rows');
+    rowsEl.innerHTML = '';
+    ['E','O','P','H','S'].forEach(d => {
+      const sc = data.scores[d], tl = data.type_letters[d], col = DIM_COLORS[d];
+      rowsEl.innerHTML += `
+        <div class="score-row">
+          <div class="score-dim-badge" style="background:${col}">${d}</div>
+          <div class="score-bar-outer"><div class="score-bar-inner" style="width:${sc}%;background:${col}"></div></div>
+          <div class="score-value" style="color:${col}">${sc.toFixed(1)}</div>
+          <div class="score-letter" style="color:${col}">${tl}</div>
+        </div>`;
+    });
+
+    // Strengths / Weaknesses
+    document.getElementById('strengths-list').innerHTML  = data.strengths.map(s => `<li>${s}</li>`).join('');
+    document.getElementById('weaknesses-list').innerHTML = data.weaknesses.map(w => `<li>${w}</li>`).join('');
+
+    // 32-type grid
+    renderTypeGrid('types-grid-e', ALL_TYPES_E, data.type_code);
+    renderTypeGrid('types-grid-i', ALL_TYPES_I, data.type_code);
+
+    // Compatibility
+    renderCompat('compat-good', data.compatible,   data.type_code, true);
+    renderCompat('compat-bad',  data.incompatible, data.type_code, false);
+
+    // Radar
+    requestAnimationFrame(() => drawRadar(data.scores, data.type_letters));
+  }
+
+  function renderTypeGrid(containerId, typeList, myCode) {
+    document.getElementById(containerId).innerHTML = typeList.map(([code, name]) => {
+      const isMe = code === myCode;
+      return `<div class="type-chip ${isMe ? 'mine' : ''}" onclick="openTypeModal('${code}')">
+        <div class="type-chip-code">${code}</div>
+        <div class="type-chip-name">${name}</div>
+        ${isMe ? '<div class="type-chip-you">あなた</div>' : ''}
+      </div>`;
+    }).join('');
+  }
+
+  function renderCompat(containerId, list, myCode, isGood) {
+    document.getElementById(containerId).innerHTML = list.map((item, i) => {
+      const { why, how } = generateCompatExplanation(myCode, item.code, isGood);
+      const col = isGood ? '#10b981' : '#f59e0b';
+      return `<div class="compat-item">
+        <div class="compat-header">
+          <div class="compat-rank">#${i + 1}</div>
+          <div class="compat-code" style="background:${col}">${item.code}</div>
+          <div class="compat-name">${item.name}</div>
+          <div class="compat-match-badge">${item.matches}/5一致</div>
+        </div>
+        <div class="compat-body">
+          <div class="compat-row">
+            <div class="compat-row-icon why">💡</div>
+            <div class="compat-row-text"><span class="compat-row-label">なぜ</span>${why}</div>
+          </div>
+          <div class="compat-row">
+            <div class="compat-row-icon how">🤝</div>
+            <div class="compat-row-text"><span class="compat-row-label">コツ</span>${how}</div>
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  // ── Type Modal ───────────────────────────────────────────
+  // Map type code first-letter to gradient colors
+  const MODAL_GRADIENTS = {
+    E: 'linear-gradient(135deg,#6c63ff,#ec4899)',
+    I: 'linear-gradient(135deg,#3b82f6,#8b5cf6)',
+  };
+
+  function openTypeModal(code) {
+    const t = TYPE_DATA[code];
+    if (!t) return;
+
+    document.getElementById('modal-type-code').textContent = code;
+    document.getElementById('modal-type-name').textContent = t.name;
+    document.getElementById('modal-desc').textContent      = t.description;
+    document.getElementById('modal-detail').textContent    = t.detail;
+    document.getElementById('modal-strengths').innerHTML   = t.strengths.map(s => `<li>${s}</li>`).join('');
+    document.getElementById('modal-weaknesses').innerHTML  = t.weaknesses.map(w => `<li>${w}</li>`).join('');
+
+    // You badge
+    const youEl = document.getElementById('modal-you-badge');
+    youEl.innerHTML = code === myTypeCode ? '<div class="modal-you-badge">あなたのタイプ</div>' : '';
+
+    // Header gradient
+    document.getElementById('modal-header').style.background =
+      code[0] === 'E' ? MODAL_GRADIENTS.E : MODAL_GRADIENTS.I;
+
+    document.getElementById('type-modal').classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeTypeModal() {
+    document.getElementById('type-modal').classList.remove('open');
+    document.body.style.overflow = '';
+  }
+
+  function handleModalOverlayClick(e) {
+    if (e.target === document.getElementById('type-modal')) closeTypeModal();
+  }
+
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeTypeModal(); });
+
+  // ── Radar chart ─────────────────────────────────────────
+  function drawRadar(scores, typeLetters) {
+    const canvas = document.getElementById('radar-canvas');
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width, H = canvas.height;
+    const cx = W/2, cy = H/2, radius = Math.min(cx, cy) - 52;
+    const DIMS = ['E','O','P','H','S'];
+    const n = 5, step = (2*Math.PI)/n, start = -Math.PI/2;
+
+    function pt(i, r) {
+      const a = start + i * step;
+      return { x: cx + r*Math.cos(a), y: cy + r*Math.sin(a) };
+    }
+
+    ctx.clearRect(0, 0, W, H);
+
+    // Grid
+    for (let lvl = 1; lvl <= 5; lvl++) {
+      ctx.beginPath();
+      const r = radius * lvl / 5;
+      for (let i = 0; i < n; i++) {
+        const p = pt(i, r);
+        i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y);
+      }
+      ctx.closePath();
+      ctx.strokeStyle = lvl === 5 ? 'rgba(0,0,0,.13)' : 'rgba(0,0,0,.07)';
+      ctx.lineWidth = 1; ctx.stroke();
+    }
+
+    // Axes
+    for (let i = 0; i < n; i++) {
+      const p = pt(i, radius);
+      ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(p.x, p.y);
+      ctx.strokeStyle = 'rgba(0,0,0,.12)'; ctx.lineWidth = 1; ctx.stroke();
+    }
+
+    // Data polygon
+    ctx.beginPath();
+    DIMS.forEach((d, i) => {
+      const p = pt(i, radius * scores[d] / 100);
+      i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y);
+    });
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(108,99,255,.22)'; ctx.fill();
+    ctx.strokeStyle = '#6c63ff'; ctx.lineWidth = 2.5; ctx.stroke();
+
+    // Dots + labels
+    DIMS.forEach((d, i) => {
+      const sc = scores[d], col = DIM_COLORS[d], tl = typeLetters[d];
+      const dp = pt(i, radius * sc / 100);
+      ctx.beginPath(); ctx.arc(dp.x, dp.y, 5, 0, 2*Math.PI);
+      ctx.fillStyle = col; ctx.fill();
+      ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+
+      const lp = pt(i, radius + 42);
+      ctx.font = 'bold 14px -apple-system,sans-serif';
+      ctx.fillStyle = col; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+      ctx.fillText(tl, lp.x, lp.y);
+      ctx.font = '10px -apple-system,sans-serif';
+      ctx.fillStyle = '#64748b'; ctx.textBaseline = 'top';
+      ctx.fillText(sc.toFixed(1), lp.x, lp.y + 2);
+    });
+  }
+</script>
+</body>
+</html>
