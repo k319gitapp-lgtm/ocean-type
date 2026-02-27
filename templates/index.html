@@ -195,14 +195,12 @@
   <div class="logo-sub">Big Five 性格診断 · 32タイプ</div>
   <div class="mode-cards">
     <div class="mode-card" onclick="startQuiz('short')">
-      <span class="badge">かんたん</span>
       <h2>かんたん診断</h2>
       <div class="meta">20問 · 約5分</div>
       <p>各次元4問ずつのコアな質問で、あなたの性格タイプを素早く診断します。</p>
       <div class="btn-start">診断スタート →</div>
     </div>
     <div class="mode-card" onclick="startQuiz('full')">
-      <span class="badge">しっかり</span>
       <h2>しっかり診断</h2>
       <div class="meta">100問 · 約20分</div>
       <p>各次元20問の詳細な質問で、より精度の高い診断結果を提供します。</p>
@@ -216,11 +214,17 @@
     <span style="background:var(--H)">協調性 H/D</span>
     <span style="background:var(--S)">安定性 S/R</span>
   </div>
+  <div style="margin-top:24px">
+    <button class="btn btn-ghost" onclick="openAllTypesModal()" style="border-color:var(--E);color:var(--E)">全32タイプ一覧を見る →</button>
+  </div>
 </div>
 
 <!-- ── QUIZ ──────────────────────────────────────────── -->
 <div id="screen-quiz" class="screen">
   <div class="quiz-header">
+    <div style="display:flex;justify-content:flex-start;margin-bottom:10px">
+      <button class="btn btn-ghost" onclick="confirmGoHome()" style="font-size:13px;padding:8px 16px">← TOPへ戻る</button>
+    </div>
     <div class="progress-row">
       <span class="progress-label" id="progress-label">1 / 20</span>
       <div class="progress-bar-outer"><div class="progress-bar-inner" id="progress-bar" style="width:0%"></div></div>
@@ -361,6 +365,24 @@
   </div>
 </div>
 
+<!-- ── ALL TYPES MODAL ───────────────────────────────────── -->
+<div class="modal-overlay" id="all-types-modal" onclick="handleAllTypesModalOverlay(event)">
+  <div class="modal-card" style="max-width:720px">
+    <div class="modal-header" style="background:linear-gradient(135deg,#6c63ff,#ec4899)">
+      <button class="modal-close-btn" onclick="closeAllTypesModal()">✕</button>
+      <div class="modal-type-code">OCEAN TYPE</div>
+      <div class="modal-type-name">全32タイプ一覧</div>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:13px;color:var(--muted);margin-bottom:16px">タイプをクリックすると詳細が表示されます</p>
+      <div class="types-group-label">外向型（E）</div>
+      <div class="types-grid" id="all-types-grid-e"></div>
+      <div class="types-group-label" style="margin-top:18px">内向型（I）</div>
+      <div class="types-grid" id="all-types-grid-i"></div>
+    </div>
+  </div>
+</div>
+
 <!-- ── TYPE MODAL ──────────────────────────────────────── -->
 <div class="modal-overlay" id="type-modal" onclick="handleModalOverlayClick(event)">
   <div class="modal-card" id="modal-card">
@@ -400,6 +422,7 @@
   // ── Constants ───────────────────────────────────────────
   const DIM_COLORS  = { E:'#6c63ff', O:'#f59e0b', P:'#10b981', H:'#3b82f6', S:'#ec4899' };
   const DIM_NAMES   = { E:'外向性', O:'革新性', P:'計画性', H:'協調性', S:'安定性' };
+  const DIM_PAIRS   = { E:'E/I', O:'O/T', P:'P/F', H:'H/D', S:'S/R' };
 
   const ALL_TYPES_E = [
     ['EOPHS','先駆者'],['EOPHR','開拓者'],['EOPDS','戦略家'],['EOPDR','反骨者'],
@@ -515,6 +538,24 @@
     window.scrollTo(0, 0);
   }
   function goHome() { questions = []; answers = {}; current = 0; myTypeCode = ''; showScreen('start'); }
+  function confirmGoHome() {
+    if (confirm('診断を中断してTOP画面に戻りますか？\n（回答内容は失われます）')) goHome();
+  }
+
+  // ── All Types Modal ─────────────────────────────────────
+  function openAllTypesModal() {
+    renderTypeGrid('all-types-grid-e', ALL_TYPES_E, '');
+    renderTypeGrid('all-types-grid-i', ALL_TYPES_I, '');
+    document.getElementById('all-types-modal').classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
+  function closeAllTypesModal() {
+    document.getElementById('all-types-modal').classList.remove('open');
+    document.body.style.overflow = '';
+  }
+  function handleAllTypesModalOverlay(e) {
+    if (e.target === document.getElementById('all-types-modal')) closeAllTypesModal();
+  }
 
   // ── Quiz ────────────────────────────────────────────────
   async function startQuiz(m) {
@@ -597,7 +638,7 @@
       const sc = data.scores[d], tl = data.type_letters[d], col = DIM_COLORS[d];
       rowsEl.innerHTML += `
         <div class="score-row">
-          <div class="score-dim-badge" style="background:${col}">${d}</div>
+          <div class="score-dim-badge" style="background:${col};width:44px;height:26px;font-size:11px">${DIM_PAIRS[d]}</div>
           <div class="score-bar-outer"><div class="score-bar-inner" style="width:${sc}%;background:${col}"></div></div>
           <div class="score-value" style="color:${col}">${sc.toFixed(1)}</div>
           <div class="score-letter" style="color:${col}">${tl}</div>
@@ -645,7 +686,7 @@
         <div class="compat-body">
           <div class="compat-row">
             <div class="compat-row-icon why">💡</div>
-            <div class="compat-row-text"><span class="compat-row-label">なぜ</span>${why}</div>
+            <div class="compat-row-text"><span class="compat-row-label">理由</span>${why}</div>
           </div>
           <div class="compat-row">
             <div class="compat-row-icon how">🤝</div>
